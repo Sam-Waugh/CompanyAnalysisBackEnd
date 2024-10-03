@@ -1,5 +1,6 @@
 from models.question import Question
-from clients.chatgpt_client import chatgpt_client
+from clients.chatgpt_client import ChatgptClient
+from clients.perplexity_client import PerplexityClient
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -9,7 +10,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 app = FastAPI()
-app.state.chat_gpt_client = chatgpt_client()
+app.state.chat_gpt_client = ChatgptClient()
+app.state.perplexity_client = PerplexityClient()
 
 
 origins = [
@@ -32,4 +34,9 @@ async def root():
 @app.post("/question")
 async def ask_question(question: Question):
     answer = app.state.chat_gpt_client.ask_question(question.question)
+    return f"Answer is: {answer}"
+
+@app.post("/questionPerplexity")
+async def ask_question(question: Question):
+    answer = app.state.perplexity_client.ask_question(question.question)
     return f"Answer is: {answer}"

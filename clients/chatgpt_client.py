@@ -1,7 +1,7 @@
 import os
 from openai import OpenAI
 
-class chatgpt_client():
+class ChatgptClient():
 
     def __init__(self):
 
