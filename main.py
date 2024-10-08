@@ -1,6 +1,6 @@
 from models.question import Question
-from clients.chatgpt_client import ChatgptClient
-from clients.perplexity_client import PerplexityClient
+from clients.api_calls.chatgpt_client import ChatgptClient
+from clients.api_calls.perplexity_client import PerplexityClient
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware

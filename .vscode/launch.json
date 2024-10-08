@@ -13,7 +13,9 @@
                 "run",
                 "main.py"
             ],
-            "jinja": true
+            "jinja": true,
+            "env": {"PYTHONPATH": "${workspaceFolder}${env:PYTHONPATH}"}
+
         }
     ]
 }
