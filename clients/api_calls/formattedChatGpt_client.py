@@ -44,3 +44,7 @@ print(response)
 if response:
     with open("output/test.json", 'w') as f:
         json.dump(response.dict(), f, indent=2)
+
+
+
+#CAN REMOVE WHOLE FILE - LOGIC IN TESTING 

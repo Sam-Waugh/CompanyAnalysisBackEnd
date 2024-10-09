@@ -1,5 +1,13 @@
 import os
 from openai import OpenAI
+from pydantic import BaseModel
+from typing import List
+
+class ItemList(BaseModel):
+    items: List[str]
+
+
+
 
 class ChatgptClient():
    
@@ -26,7 +34,7 @@ class ChatgptClient():
     def generate_response_with_model(self, messages, response_model):
         try:
             completion = self.client.beta.chat.completions.parse(
-                model='gpt-4o-mini',  # Use 'gpt-4o-mini' as per your requirement
+                model='gpt-4o-mini', 
                 messages=messages,
                 response_format=response_model,
             )
