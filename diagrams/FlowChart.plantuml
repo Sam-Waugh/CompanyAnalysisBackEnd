@@ -1,0 +1,38 @@
+@startuml Input Company URL
+
+!theme aws-orange
+skinparam dpi 65
+actor user
+
+participant ":AnalysisApi"
+participant ":LLMApi"
+participant ":CompaniesHouseApi"
+participant ":Scrapers"
+participant ":Database"
+
+user --> ":AnalysisApi": input URL of company want to analyse 
+":AnalysisApi" --> ":LLMApi": run series of prompts to find out set of information about company including industry area, Companies House number, other information from reputable sources specified?
+":LLMApi" --> ":AnalysisApi": return prompt responses
+
+":AnalysisApi" --> ":Scrapers": pass relevant Industry Urls to scrapers to scrape relevant industry information
+":Scrapers" --> ":Database": return relevant industry information & store
+
+":AnalysisApi" --> ":LLMApi": additional relevant IndustryUrls that can be scraped directly by LLM and not specific scrapers to scrape relevant industry information
+":LLMApi" --> ":AnalysisApi": return relevant industry information 
+":AnalysisApi" --> ":Database": return relevant industry information & store
+
+":AnalysisApi" --> ":Scrapers": pass relevant Other Relevant Urls to scrapers to scrape relevant company information
+":Scrapers" --> ":Database": return relevant company information & store
+
+":AnalysisApi" --> ":LLMApi": additional relevant Other Relevant Urls that can be scraped directly by LLM and not specific scrapers to scrape relevant company information
+":LLMApi" --> ":AnalysisApi": return relevant company information
+":AnalysisApi" --> ":Database": return relevant company information & store
+
+":AnalysisApi" --> ":CompaniesHouseApi": Pass the companies house number 
+":CompaniesHouseApi" --> ":AnalysisApi": Query and return relavant Companies House data
+":AnalysisApi" --> ":Database": Return relavant Companies House data and store in database
+
+":Database" --> ":AnalysisApi": Pass all relevant information stored regarding the industry and company
+":AnalysisApi" --> ":LLMApi": Run prompts to build company analysis report
+":LLMApi" --> ":AnalysisApi": Output report in standard format
+":AnalysisApi" --> user: Return company analysis report to user
