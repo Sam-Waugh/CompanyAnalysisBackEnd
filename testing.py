@@ -9,8 +9,9 @@ load_dotenv()
 
 #Deloitte data scraping print title & save to file
 data = scrape_deloitte()
-titles = data["titles"]
-print(titles)
+# titles = data["titles"]
+# print(titles)
+headlines = data["headlines"]
 
 save_to_json(data)
 
@@ -30,5 +31,5 @@ chatgptClient = ChatgptClient()
 #ChatGPT formatted prompt response save to file 
 response = chatgptClient.generate_response_with_model(messages, ItemList)
 
-print(response)
-save_to_json(response)
+#print(response)
+#save_to_json(response)
