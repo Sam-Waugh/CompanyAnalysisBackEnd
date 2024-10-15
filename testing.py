@@ -1,3 +1,4 @@
+import time
 from dotenv import load_dotenv
 from utils.file_handler import save_to_json
 from clients.scrapers.deloitte_scraper import scrape_deloitte
@@ -11,25 +12,33 @@ load_dotenv()
 data = scrape_deloitte()
 # titles = data["titles"]
 # print(titles)
-headlines = data["headlines"]
+#headlines = data["headlines"]
 
-save_to_json(data)
+#print(data)
 
-messages = [
-{
-    "role": "system", 
-    "content": "You are an expert in proposing high level categories for evaluation criteria for a given task."
-    },
-{
-    "role": "user", 
-    "content": f"Please provide a list of high level categories of criteria for the task: types of events in a life '. For each category, include: - A description of the criterion."
-    }
-]
+for index, entry in enumerate(data):
+    save_to_json(entry, f"output/articles/{entry['industry']}/result{index}_{int(time.time())}.json")
 
-chatgptClient = ChatgptClient()
+##################################
 
-#ChatGPT formatted prompt response save to file 
-response = chatgptClient.generate_response_with_model(messages, ItemList)
+# #CHATGPT DATA SAVING
+# messages = [
+# {
+#     "role": "system", 
+#     "content": "You are an expert in proposing high level categories for evaluation criteria for a given task."
+#     },
+# {
+#     "role": "user", 
+#     "content": f"Please provide a list of high level categories of criteria for the task: types of events in a life '. For each category, include: - A description of the criterion."
+#     }
+# ]
 
-#print(response)
-#save_to_json(response)
+# chatgptClient = ChatgptClient()
+
+# #ChatGPT formatted prompt response save to file 
+# response = chatgptClient.generate_response_with_model(messages, ItemList)
+
+# #print(response)
+# #save_to_json(response)
+
+####################################

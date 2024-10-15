@@ -24,6 +24,7 @@ messages = [
 
 
 # def generate_response_with_model(messages, response_model):
+
 #     try:
 #         completion = openai.beta.chat.completions.parse(
 #             model='gpt-4o-mini',  # Use 'gpt-4o-mini' as per your requirement

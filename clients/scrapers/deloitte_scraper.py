@@ -1,5 +1,9 @@
 from os import name
+import os
 from playwright.sync_api import sync_playwright
+import requests
+import pdfplumber
+import urllib.parse
 
 def scrape_deloitte():
     with sync_playwright() as p:
@@ -15,7 +19,8 @@ def scrape_deloitte():
                 'Accept-Language': 'en-GB,en-US;q=0.9,en;q=0.8',
                 'Accept-Encoding': 'gzip, deflate, br, zstd',
                 'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7'
-            }
+            },
+            accept_downloads=True
         )
         context.add_cookies([
             # {
@@ -38,142 +43,190 @@ def scrape_deloitte():
             }
         ])
         
-        # Open a new page in the context
-        #page = context.new_page()
+        is_pdf_redirected = False
+        pdfLink = ''
 
-        # Navigate to the url
-        # page.goto('https://www2.deloitte.com/us/en/insights.html')
-
-
-        # # Wait for the page to load completely
-        # page.wait_for_load_state('domcontentloaded')
-
-        # # Handle the cookies popup by clicking the "Accept" button
-        # # Use query selector to target the button
-        # try:
-        #     # Modify the selector according to the page's button (you can use text, CSS class, or button role)
-        #     page.locator("text=Accept optional cookies").click(force=True)  # Or use other methods like query_selector or text content
-        #     print("Accepted the cookies popup")
-        # except Exception as e:
-        #     print(f"Could not find the 'Accept' button: {e}")
-
-        # # Click on the search button to make the search bar visible
-        # page.click('.cmp-di-header__action-item.cmp-di-header__search')
-    
-
-        #  # Find the search bar and enter the search query
-        # page.fill('.cmp-di-search__input', 'medical devices')
-
-        # # Press 'Enter' to submit the search
-        # page.keyboard.press('Enter')
-
-        # # Wait for the results to load (adjust the wait time if necessary)
-        # page.wait_for_load_state('networkidle')
-
-
-        # # page.evaluate('''() => {
-        # #     Object.defineProperty(navigator, 'webdriver', { get: () => false });
-        # # }''')
-
-        # searchResultUrl = page.url
-        # print(searchResultUrl)
         searchResultPage = context.new_page()
-        #searchResultPage.goto(searchResultUrl)
-        searchResultPage.goto('https://www2.deloitte.com/us/en/insights/searchresults.html?qr=medical%20devices')
+        industry = 'medical devices'
+        searchResultPageUrl = get_search_result_page(industry)
+        searchResultPage.goto(searchResultPageUrl)
 
-        # Wait for the modal to be visible
-        #page.wait_for_selector('.ot-sdk-container', state='visible', timeout=10000)  # Wait for the modal to be visible
+        #searchHeadlines = searchResultPage.query_selector_all('.cmp-di-search-list__headline.cmp-di-search__headline > a')
 
-
-        #page.wait_for_selector('.onetrust-accept-btn-handler', state='visible', force=True)
-        #page.click('.onetrust-accept-btn-handler')
-
-        # Wait for the page to load completely
-        #page.wait_for_load_state('domcontentloaded')
-
-        #page.click('button.accept-cookies-selector')
-
-        # Wait for the modal and "Accept" button to be visible
-        # try:
-        #     # Wait for the modal to appear and locate the button
-        #     page.wait_for_selector("button.onetrust-accept-button-handler", timeout=5000)  # Use the actual selector for the "Accept" button
-        #     print("Accepted the cookies popup")
-
-        #     page.click("onetrust-accept-btn-handler")  # Clicking the "Accept" button
-        #     print("Accepted the cookies popup")
-        # except Exception as e:
-        #     print(f"Error handling the modal: {e}")
-        #page.goto('https://www.deloitte.com/global/en/Industries/automotive.html')
-        #page.goto('https://www2.deloitte.com/us/en/insights/industry/technology/digital-media-trends-consumption-habits-survey.html#key-themes')
-        #print(page)
-        # Wait to load
-        #page.wait_for_selector('.cmp-title__text')   
-        #page.wait_for_selector('.insight-card__headline')
-
-        #if need to simulate scrolling to get all content
-        #page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-
-        # Scrape titles
-        #articles = page.query_selector_all('.insight-card__headline')
-        #searchPageContent = searchResultPage.content()
-        
-
-        # Wait for the headline elements to load on the page
-        #page.wait_for_selector('.cmp-di-search-list')
-        #searchHeadlines = searchResultPage.query_selector_all('#cmp-di-search-page > div.aem-Grid.aem-Grid--10 > div > div > div > ds-is-results-list > ul > li:nth-child(2) > ds-is-insight > div.cmp-di-search-list__content.cmp-di-search-list__content-profile > h2 > a')
-        #searchHeadlines = searchResultPage.query_selector_all('#cmp-di-search-page > div.aem-Grid.aem-Grid--10 > div > div > div > ds-is-results-list > ul > li:nth-child(2) > ds-is-insight > div.cmp-di-search-list__content.cmp-di-search-list__content-profile > h2 > a')
-        #<h2 class="cmp-di-search-list__headline cmp-di-search__headline"><a href="/us/en/insights/industry/technology/technology-media-and-telecom-predictions/2022/wearable-technology-healthcare.html">Wearable technology in health care</a></h2>
-        #print(searchPageContent)
-        searchHeadlines = searchResultPage.query_selector_all('.cmp-di-search-list__headline.cmp-di-search__headline > a')
-        #print(f"{searchHeadlines}")
-        # links = searchResultPage.get_attribute('href', "results") 
-        # for link in links:
-        #     print(f"Link: {link}")
-
-
-
-        # for headline in searchHeadlines:
-        #     print(headline.text_content().strip()) 
-        # searchHeadlinesText = [headline.inner_text() for headline in searchHeadlines]
-        # print(searchHeadlinesText)
-        # searchHeadlinesText = [searchHeadline.inner_text() for searchHeadline in searchHeadlines]
-        # print(searchHeadlinesText)tio
-        #article_titles = [article.inner_text() for article in articles]
-        #articles = page.query_selector_all('title')
-        #article_titles = [article.inner_text() for article in articles]
-
-
-
+        data = []
         searchHeadlinesDict = {}
-        # Loop through the elements and extract the text and href attribute
-        for headline in searchHeadlines:
-            #print(headline)
-            text = headline.text_content().strip()  # Get the link text
-            link = 'https://www2.deloitte.com/' + headline.get_attribute('href')   # Get the href attribute
-            print(f"Text: {text}, Link: {link}")    # Print both
-            if text and link:  # Ensure both text and href exist
-                searchHeadlinesDict[text] = link  # Use .strip() to remove extra whitespace
 
-        #print(searchHeadlinesDict)
 
-        for headlineLink in searchHeadlinesDict.values():
-            headlineLinkPage = context.new_page()
-            headlineLinkPage.goto(headlineLink)
-            headlineLinkPageContent = headlineLinkPage.content()
-            print(headlineLinkPageContent)
+        def process_page():
+            # Extracting headlines and links on the current page
+            searchHeadlines = searchResultPage.query_selector_all('.cmp-di-search-list__headline.cmp-di-search__headline > a')
 
+            # Loop through the elements and extract the text and href attribute
+            for headline in searchHeadlines:
+                #print(headline)
+                text = headline.text_content().strip()  # Get the link text
+                link = 'https://www2.deloitte.com/' + headline.get_attribute('href')   # Get the href attribute
+                print(f"Text: {text}, Link: {link}")    # Print both
+                if text and link:  # Ensure both text and href exist
+                    searchHeadlinesDict[text] = link  # Use .strip() to remove extra whitespace
+
+        process_page()  # Process the first page
+
+        #PAGINATION DOESN'T WORK - POSSIBLY JUST ADD PAGE NO TO  SEARCHHEADLINES
+        # Pagination loop
+        while True:
+            try:
+                # Find all pagination buttons
+                pagination_buttons = searchResultPage.query_selector_all('#cmp-di-search-pagination > ul > li:nth-child(2) > button')
+
+                # if not pagination_buttons:
+                #     print("No more pagination buttons found.")
+                #     break
+
+                # for idx, button in enumerate(pagination_buttons):
+                #     button_text = button.text_content().strip()
+
+                #     if "Next" in button_text or button_text.isdigit():  # Either a page number or the Next button
+                #         try:
+                #             print(f"Navigating to page {button_text}...")
+                #             button.click()
+                #             searchResultPage.wait_for_load_state('domcontentloaded')
+
+                #             process_page()  # Process the new page
+
+                #             # After loading a new page, re-fetch the pagination buttons again
+                #             pagination_buttons = searchResultPage.query_selector_all('#cmp-di-search-pagination > ul > li > button')
+
+                #         except Exception as e:
+                #             print(f"Error navigating to page {button_text}: {e}")
+                #             break  # Stop looping if an error occurs
+
+                # # If no buttons are found after a page is processed, break the loop
+                # if not pagination_buttons:
+                #     break
+
+
+                # Loop through each pagination button
+                for idx, button in enumerate(pagination_buttons):
+                    try:
+                        # Extract the page number or text from the button
+                        button_text = button.text_content().strip()
+                        print(f"Navigating to page {button_text}...")
+
+                        # Click the pagination button
+                        button.click()
+                        searchResultPage.wait_for_load_state('domcontentloaded')
+
+                        # Process the content on the new page
+                        process_page()
+
+                    except Exception as e:
+                        print(f"Error navigating to page {idx + 1}: {e}")
+                        break  # Stop looping if an error occurs
+
+                #If there's no more button or pagination, break the loop
+                if not pagination_buttons:
+                    break
+
+            except Exception as e:
+                print(f"Error during pagination: {e}")
+                break  # Exit the loop if there's an error during pagination
+
+
+            #print(searchHeadlinesDict)
+
+        for headline, headlineLink in searchHeadlinesDict.items():
+            with context.new_page() as headlineLinkPage:
+
+                # Listen for response events
+                def handle_response(response):
+                    nonlocal is_pdf_redirected
+                    nonlocal pdfLink
+
+                    # Check if the response is a PDF
+                    if response.url.endswith('.pdf'):
+                        is_pdf_redirected = True  # Set flag to indicate PDF redirect
+                        pdfLink = response.url  
+                        print("Intercepted PDF response:", pdfLink)               
+
+                headlineLinkPage.on("response", handle_response)
+
+                try:
+                    headlineLinkPage.goto(headlineLink, wait_until='domcontentloaded')
+                    print(f"url: {headlineLinkPage.url}")
+
+                    headlineLinkPageContent = headlineLinkPage.content()
+                    #print(headlineLinkPageContent)
+                    entry = {"industry": industry, "headline": headline, "link": headlineLink, "content": headlineLinkPageContent}
+
+                except Exception as e:
+                    print(f"Error during page loadfor {headline}: {e}")
+                    #headlineLinkPage.goto(pdfLink)
+
+                    if is_pdf_redirected and pdfLink:
+                        print(f"PDF found, redirecting to {pdfLink}")
+                        pdf_filename = f"{sanitise_filename(headline)}.pdf"
+                        # Download the PDF using requests
+                        download_pdf(pdfLink, pdf_filename)
+
+                        extracted_text = extract_text_from_pdf(pdf_filename)
+                        os.remove(pdf_filename)  #delete the PDF after processing
+
+                        entry = {"industry": industry, "headline": headline, "link": pdfLink, "content": extracted_text} 
+                    
+                    else:
+                        entry = {"industry": industry, "headline": headline, "link": headlineLink, "message": "No PDF was found or redirected."}
+            
+            data.append(entry) #saves after processing so data is captured even if script stops partway through 
 
         # Close the browser
         browser.close()
         # Return the scraped titles
         #return {"titles": article_titles, "content": searchPageContent}
-        return {"headlines": searchHeadlinesDict}
-    
+        return data
+       
 
+
+def get_search_result_page(industry):
+    # Encode the industry name to be used in the URL
+    encoded_industry = urllib.parse.quote(industry)
+
+    # Construct the search result page URL
+    search_url = f"https://www2.deloitte.com/us/en/insights/searchresults.html?qr={encoded_industry}"
+
+    # Simulate the searchResultPage.goto action
+    print(f"searchResultPage.goto('{search_url}')")
+
+    # Optionally return the URL if needed
+    return search_url
+
+def is_pdf_url(url):
+    return url.lower().endswith('.pdf')
+    
+    # Function to download PDF file
+def download_pdf(url, save_path):
+    response = requests.get(url)
+    if response.status_code == 200:
+        with open(save_path, 'wb') as file:
+            file.write(response.content)
+        return save_path
+    else:
+        raise Exception(f"Failed to download PDF from {url}")
+    
+# Function to extract text from the PDF
+def extract_text_from_pdf(pdf_path):
+    text = ""
+    with pdfplumber.open(pdf_path) as pdf:
+        for page in pdf.pages:
+            text += page.extract_text()
+    return text
+
+def sanitise_filename(text):
+    return ''.join(c if c.isalnum() else '_' for c in text)[:50]  
     
 
 if __name__ == "__main__":
-    #data = scrape_deloitte()
+    data = scrape_deloitte()
     #print("Scraped Articles:")
     #Loop through the elements and extract the text and href attribute
     # for headline in searchHeadlinesDict:
