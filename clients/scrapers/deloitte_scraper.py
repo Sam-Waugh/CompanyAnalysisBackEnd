@@ -1,3 +1,4 @@
+import copy
 from os import name
 import os
 from playwright.sync_api import sync_playwright
@@ -7,8 +8,6 @@ import urllib.parse
 
 def scrape_deloitte():
     with sync_playwright() as p:
-        # Launch a headless browser
-
         #browser = p.chromium.launch(headless=False)
         browser = p.firefox.launch(headless=True) 
 
@@ -38,39 +37,44 @@ def scrape_deloitte():
         ])
         
         data = []
-
+        global industry 
         industry = 'medical devices'
-        searchResultPageUrl = get_search_result_page(industry)
+        search_url_template = get_search_url(industry)
 
-        paginate(searchResultPageUrl, context, data)
-    
+        paginate(search_url_template, context, data)
         browser.close()
+
+        # for entry in data:
+        #     print(entry["headline"])
 
         return data
 
-def get_search_result_page(industry):
+def get_search_url(industry):
     # Encode the industry name to be used in the URL
     encoded_industry = urllib.parse.quote(industry)
 
     # Construct the search result page URL
-    search_url = f"https://www2.deloitte.com/us/en/insights/searchresults.html?qr={encoded_industry}&page={{}}"
-    
-    return search_url
+    return f"https://www2.deloitte.com/us/en/insights/searchresults.html?qr={encoded_industry}&page={{}}"
 
-
-def paginate(searchResultPageUrl, context, data, start_page=1):
+def paginate(search_url_template, context, data, start_page=1):
     page_number = start_page
     previous_results = None  # To store previous page results
-    #searchPageHeadlinesDict = {}
-    searchHeadlinesDict = {}
+    #search_headlines_dict = {}
 
     while True:
         # Format the URL with the current page number
-        url = searchResultPageUrl.format(page_number)
+        url = search_url_template.format(page_number)
+        print(f"Scraping page {page_number}: {url}")
         
         # Create a new page in the context for each result page
         page = context.new_page()
-        page.goto(url, wait_until='domcontentloaded')
+
+        for attempt in range(3):  # Retry up to 3 times
+            try:
+                page.goto(url, wait_until='networkidle')
+                break  # Exit the loop if successful
+            except Exception as e:
+                print(f"Error loading page {page_number} on attempt {attempt + 1}: {e}")
 
         # # Check for HTTP status code directly in Playwright instead of using requests
         # response = page.goto(url)
@@ -79,37 +83,45 @@ def paginate(searchResultPageUrl, context, data, start_page=1):
         #     break
         
         # Process the page content
-        searchPageHeadlinesDict = process_page(page)
-        #print(f"Headlines found on page {page_number}: {searchPageHeadlinesDict}")
-        searchHeadlinesDict.update(searchPageHeadlinesDict)
+        search_page_headlines_dict = process_page(page)
+        if not search_page_headlines_dict:
+            print(f"No results on page {page_number}.")
+        #print(search_headlines_dict)
+        #print()
+        #search_headlines_dict.update(search_page_headlines_dict)
+        #print(search_headlines_dict)
+        #print()
 
         # If it's the first page and no results are found, stop the process
-        if page_number == 1 and not searchHeadlinesDict:
+        if page_number == 1 and not search_page_headlines_dict:
             print("No results found on page 1. Stopping.")
             break
 
-        # If no results or repeated results on subsequent pages, stop pagination
-        if previous_results is not None and page_number != 1 and previous_results == searchHeadlinesDict:
-            print(f"No new results or repeated results on page {page_number}. Stopping pagination.")
-            break
+        #print(f"Previous results: {previous_results}")
+        #print(f"Current results: {search_headlines_dict}")
 
-        # Update the main dictionary with results from the current page
-        #searchHeadlinesDict.update(searchPageHeadlinesDict)
+        prev_results_normalized = []
+        current_results_normalized = []
 
-        # if not searchHeadlinesDict:  # No results found on the current page
-        #     print(f"No results on page {page_number}. Stopping pagination.")
-        #     break
+        # Normalize and compare results to avoid false positives
+        if previous_results is not None and int(page_number) != "1":
+            # Convert dictionary keys to a sorted list and normalize strings for comparison
+            prev_results_normalized = sorted([headline.lower().strip() for headline in previous_results])
+            current_results_normalized = sorted([headline.lower().strip() for headline in search_page_headlines_dict])
 
-        # # Check if the results are the same as the previous page's results
-        # if previous_results == searchHeadlinesDict:
-        #     print(f"Repeated results on page {page_number}. Stopping pagination.")
-        #     break
+            print(f"Normalized previous results: {prev_results_normalized}")
+            print(f"Normalized current results: {current_results_normalized}")
+            
+            if prev_results_normalized == current_results_normalized:
+                print(f"No new results or repeated results on page {page_number}. Stopping pagination.")
+                break
 
         # Iterate through the headlines and process individual links
-        for headline, headlineLink in searchHeadlinesDict.items():
-            process_headline(context, headline, headlineLink, data)
+        for headline, headline_link in search_page_headlines_dict.items():
+            process_headline(context, headline, headline_link, data)
 
-        previous_results = searchHeadlinesDict
+        # Make a deep copy of the current results to preserve them for the next iteration
+        previous_results = copy.deepcopy(search_page_headlines_dict)
 
         page_number += 1
         page.close()
@@ -117,52 +129,55 @@ def paginate(searchResultPageUrl, context, data, start_page=1):
     
 def process_page(page):
     # Extracting headlines and links on the current page
-    searchHeadlines = page.query_selector_all('.cmp-di-search-list__headline.cmp-di-search__headline > a')
-    searchHeadlinesDict = {}
+    search_headlines = page.query_selector_all('.cmp-di-search-list__headline.cmp-di-search__headline > a')
+    #print(search_headlines)
+    search_headlines_dict = {}
 
     # Loop through the elements and extract the text and href attribute
-    for headline in searchHeadlines:
+    for headline in search_headlines:
         text = headline.text_content().strip()  # Get the link text
         link = 'https://www2.deloitte.com/' + headline.get_attribute('href')   # Get the href attribute
         print(f"Text: {text}, Link: {link}")    # Print both
         if text and link:  # Ensure both text and href exist
-            searchHeadlinesDict[text] = link  # Use .strip() to remove extra whitespace
+            search_headlines_dict[text] = link  # Use .strip() to remove extra whitespace
     
-    return searchHeadlinesDict
+    return search_headlines_dict
 
 
-def process_headline(context, headline, headlineLink, data):
-    with context.new_page() as headlineLinkPage:
+def process_headline(context, headline, headline_link, data):
+    with context.new_page() as headline_link_page:
         is_pdf_redirected = False
-        pdfLink = ''
+        pdf_link = ''
 
         def handle_response(response):
-            nonlocal is_pdf_redirected, pdfLink
+            nonlocal is_pdf_redirected, pdf_link
             # Check if the response is a PDF
             if response.url.endswith('.pdf'):
                 is_pdf_redirected = True
-                pdfLink = response.url
-                print("Intercepted PDF response:", pdfLink)               
+                pdf_link = response.url
+                print("Intercepted PDF response:", pdf_link)               
 
-        headlineLinkPage.on("response", handle_response)
+        headline_link_page.on("response", handle_response)
 
         try:
-            headlineLinkPage.goto(headlineLink, wait_until='domcontentloaded')
-            headlineLinkPageContent = headlineLinkPage.content()
-            entry = {"headline": headline, "link": headlineLink, "content": headlineLinkPageContent}
+            headline_link_page.goto(headline_link, wait_until='domcontentloaded')
+            headline_link_page_content = headline_link_page.content()
+            entry = {"industry": industry, "headline": headline, "link": headline_link, "content": headline_link_page_content}
 
         except Exception as e:
             print(f"Error during page load for {headline}: {e}")
-            if is_pdf_redirected and pdfLink:
+            if is_pdf_redirected and pdf_link:
                 pdf_filename = f"{sanitise_filename(headline)}.pdf"
-                download_pdf(pdfLink, pdf_filename)
+                download_pdf(pdf_link, pdf_filename)
                 extracted_text = extract_text_from_pdf(pdf_filename)
                 os.remove(pdf_filename)
-                entry = {"headline": headline, "link": pdfLink, "content": extracted_text}
+                entry = {"industry": industry, "headline": headline, "link": pdf_link, "content": extracted_text}
             else:
-                entry = {"headline": headline, "link": headlineLink, "message": "No PDF was found or redirected."}
+                entry = {"industry": industry, "headline": headline, "link": headline_link, "message": "No PDF was found or redirected."}
 
         data.append(entry) #saves after processing so data is captured even if script stops partway through 
+        # for entry in data:
+        #     print(entry["headline"])
 
 def download_pdf(url, save_path):
     response = requests.get(url)
