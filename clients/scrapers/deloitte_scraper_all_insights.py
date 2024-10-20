@@ -9,7 +9,7 @@ import urllib.parse
 def scrape_deloitte_insights():
     with sync_playwright() as p:
         #browser = p.chromium.launch(headless=False)
-        browser = p.firefox.launch(headless=True) 
+        browser = p.firefox.launch(headless=False) 
         # Create a new browser context with a custom User-Agent
         context = browser.new_context(
             user_agent='Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -32,6 +32,12 @@ def scrape_deloitte_insights():
                 'value': 'interactionCount=0&datestamp=Thu+Oct+17+2024+22%3A03%3A44+GMT%2B0100+(British+Summer+Time)&version=202210.1.0&isGpcEnabled=0&geolocation=GB&isIABGlobal=false&hosts=&consentId=2f5eedc6-c1c5-4d6e-929a-5dedc11004be&landingPath=NotLandingPage&AwaitingReconsent=false&groups=1%3A1%2C2%3A0%2C3%3A0%2C4%3A0',
                 'domain': '.www2.deloitte.com',
                 'path': '/us/'
+            },
+            {
+                'name': 'OneTrustConsentShare_GLOBAL',
+                'value': 'optboxclosed=true&optboxexpiry=2024-10-04T14:04:38.852Z&isGpcEnabled=0&datestamp=Fri+Oct+11+2024+16:26:30+GMT+0100+(British+Summer+Time)&version=202409.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=51304710-7c7d-4672-a80d-6cabc82a6c41&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=1:1,2:1,3:1,4:1&geolocation=GB&AwaitingReconsent=false',
+                'domain': '.deloitte.com',
+                'path': '/'
             }
         ])
         
@@ -141,14 +147,14 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
         is_pdf_redirected = False
         pdf_link = ''
         is_404_error = False 
-        end_url = ''
+        url = headline_link
 
         def handle_response(response):
-            nonlocal is_pdf_redirected, pdf_link, is_404_error, end_url
+            nonlocal is_pdf_redirected, pdf_link, is_404_error
             # Check for 404 error
-            if response.status == 404:
+            if response.status == 404 and response.url == url:
                 is_404_error = True
-                print(f"404 error encountered for {headline_link}")
+                print(f"404 error encountered for {response.url}")
 
             # Check if the response is a PDF
             elif response.url.endswith('.pdf'):
@@ -156,28 +162,54 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
                 pdf_link = response.url
                 print("Intercepted PDF response:", pdf_link)       
 
+        def handle_request_failure(request):
+            nonlocal is_404_error
+            # Handle request failures, such as NS_ERROR_UNKNOWNHOST
+            if request.failure:  # Ensure failure object exists
+                if "NS_ERROR_UNKNOWNHOST" in request.failure:
+                    print(f"Request failed: {request.url} due to {request.failure}")
+                elif request.failure == "net::ERR_ABORTED" and request.url == url:
+                    is_404_error = True  # Consider it a 404 if the main URL fails to load
+
         headline_link_page.on("response", handle_response)
+        headline_link_page.on("requestfailed", handle_request_failure)
 
         try:
             headline_link_page.goto(headline_link, wait_until='domcontentloaded')
 
             if is_404_error:
                 # Extract the end_url from the original headline link
-                end_url = headline_link.replace('https://www2.deloitte.com', '')
+                url = headline_link.replace('https://www2.deloitte.com', 'https://www2.deloitte.com/us/en/insights')
+                    
                 # Construct the new link by prepending the correct base URL
-                new_link = 'https://www2.deloitte.com/us/en/insights' + end_url
-                print(f"Trying new link: {new_link}")
+                #new_link = '' + end_url
+                print(f"Trying new link: {url}")
 
+                 # Reset 404 error flag
+                is_404_error = False
                 # Attempt to navigate to the new link
-                headline_link_page.goto(new_link, wait_until='domcontentloaded')
+                headline_link_page.goto(url, wait_until='domcontentloaded')
 
-                # If the new link doesn't raise a 404, update the search_headlines_dict
-                if not is_404_error:  # If no 404 after retry
-                    print(f"Updated working link: {new_link}")
-                    search_page_headlines_dict[headline] = new_link  # Update the dictionary with the new link
+                if is_404_error:
+                    # Extract the end_url from the original headline link
+                    url = headline_link.replace('https://www2.deloitte.com', '')
+                    # Construct the new link by prepending the correct base URL
+                    #new_link = '' + end_url
+                    print(f"Trying further amended link: {url}")
 
-                raise Exception(f"404 Page Not Found for {headline_link}")
-            
+                    # Reset 404 error flag
+                    is_404_error = False
+                    headline_link_page.goto(url, wait_until='domcontentloaded')
+
+                    # If the new link doesn't raise a 404, update the search_headlines_dict
+                    if not is_404_error:  # If no 404 after retry
+                        is_404_error = False
+                        print(f"Updated working link: {url}")
+                        search_page_headlines_dict[headline] = url  # Update the dictionary with the new link
+                    
+                    else: 
+                        raise Exception(f"404 Page Not Found after multiple retries for {headline_link}")
+                
             headline_link_page_content = headline_link_page.content()
             entry = {"headline": headline, "link": search_page_headlines_dict[headline], "content": headline_link_page_content}
 
@@ -192,6 +224,7 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
                 
             elif is_404_error:
                 entry = {"headline": headline, "link": headline_link, "message": "404 Page Not Found"}
+
             else:
                 entry = {"headline": headline, "link": headline_link, "message": "No PDF was found or redirected."}
 
