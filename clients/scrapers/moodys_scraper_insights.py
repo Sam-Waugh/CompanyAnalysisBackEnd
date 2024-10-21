@@ -5,11 +5,12 @@ from playwright.sync_api import sync_playwright
 import requests
 import pdfplumber
 import urllib.parse
+import fitz  # PyMuPDF
 
-def scrape_deloitte_tax():
+def scrape_moodys_insights():
     with sync_playwright() as p:
-        #browser = p.chromium.launch(headless=False)
-        browser = p.firefox.launch(headless=True) 
+        browser = p.chromium.launch(headless=False)
+        #browser = p.firefox.launch(headless=True) 
         # Create a new browser context with a custom User-Agent
         context = browser.new_context(
             user_agent='Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -42,7 +43,7 @@ def scrape_deloitte_tax():
         ])
         
         data = []
-        url_template = "https://taxscape.deloitte.com/home/insights.aspx"
+        url_template = "https://www.moodys.com/web/en/us/insights/all.html"
         # global industry 
         # industry = 'medical devices'
         # search_url_template = get_search_url(industry)
@@ -57,15 +58,14 @@ def paginate(url_template, context, data, start_page=1):
     page_number = start_page
     page = context.new_page()
 
+    for attempt in range(3):  # Retry up to 3 times
+        try:
+            page.goto(url, wait_until='networkidle')
+            break  # Exit the loop if successful
+        except Exception as e:
+            print(f"Error loading page {page_number} on attempt {attempt + 1}: {e}")
+
     while True:
-        #had to ew contect or won't load next page
-        page = context.new_page()
-        for attempt in range(3):  # Retry up to 3 times
-            try:
-                page.goto(url, wait_until='networkidle')
-                break  # Exit the loop if successful
-            except Exception as e:
-                print(f"Error loading page {page_number} on attempt {attempt + 1}: {e}")
 
         # Process the page content
         search_page_headlines_dict = process_page(page)
@@ -79,24 +79,28 @@ def paginate(url_template, context, data, start_page=1):
         for headline, headline_link in search_page_headlines_dict.items():
             process_headline(context, headline, headline_link, data, search_page_headlines_dict)
 
-                # Check if there is a "Next" button
-        next_button = page.query_selector('a.next')
+        try:
+            # Check if there is a "Next" button
+            next_button = page.query_selector('a.btn.load-more-button')
+            #next_button.scroll_into_view_if_needed()
 
-        if next_button:
-            # Get the href for the next page (optional, if you want to log it)
-            next_page_url = next_button.get_attribute('href')
-            url = 'https://taxscape.deloitte.com' + next_page_url
-            print(f"Scraping page {page_number+1}: {url}")
+            if next_button:
+                print(f"Scraping page {page_number+1}")
 
-            # Click the "Next" button
-            next_button.click()
+                # Click the "Next" button
+                next_button.click()
 
-            # Wait for the next page to load (you can use wait_for_selector for an element unique to the next page)
-            page.wait_for_selector('body > div > section > div > div.col-md-8 > div h3 a')
-        else:
-            # No more pages, break the loop
-            print("No more pages.")
-            break
+            else:
+                    # No more pages, break the loop
+                print("No more pages.")
+                break
+
+        except Exception as e:  
+            print(f"An error occurred: {e}")
+
+                    # Wait for the next page to load (you can use wait_for_selector for an element unique to the next page)
+                    #page.wait_for_selector('.card-insight')
+
 
         page_number += 1
         page.close()
@@ -105,15 +109,16 @@ def paginate(url_template, context, data, start_page=1):
 def process_page(page):
     search_page_headlines_dict = {}
     # Extracting headlines and links on the current page
-    search_headlines = page.query_selector_all('body > div > section > div > div.col-md-8 > div h3 a')
+    search_headlines = page.query_selector_all('.card-insight')
 
     #print(search_headlines)
 
     # Loop through the elements and extract the text and href attribute
     for headline in search_headlines:
-        text = headline.text_content().strip()  # Get the link text
-        end_url = headline.get_attribute('href')   # Get the href attribute
-        link = 'https://taxscape.deloitte.com/' + end_url
+        text = headline.query_selector('h5').inner_text().strip()  # Get the link text
+        link_element = headline.query_selector('a.btn-quick-link')
+        end_url = link_element.get_attribute('href').strip()   # Get the href attribute
+        link = 'https://www.moodys.com' + str(end_url)
         print(f"Text: {text}, Link: {link}")    # Print both
         if text and link:  # Ensure both text and href exist
             search_page_headlines_dict[text] = link  # Use .strip() to remove extra whitespace
@@ -157,7 +162,7 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
 
             if is_404_error:
                 # Extract the end_url from the original headline link
-                url = headline_link.replace('https://www2.deloitte.com', 'https://www2.deloitte.com/uK/en/insights')
+                url = headline_link.replace('https://www.moodys.com/', 'https://www.moodys.com/web/en/us/insights')
                     
                 # Construct the new link by prepending the correct base URL
                 #new_link = '' + end_url
@@ -170,7 +175,7 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
 
                 if is_404_error:
                     # Extract the end_url from the original headline link
-                    url = headline_link.replace('https://www2.deloitte.com', '')
+                    url = headline_link.replace('https://www.moodys.com', '')
                     # Construct the new link by prepending the correct base URL
                     #new_link = '' + end_url
                     print(f"Trying further amended link: {url}")
@@ -197,15 +202,21 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
             if is_pdf_redirected and pdf_link:
                 # Use Playwright's expect_download to handle PDF download
                 try:
-                    with headline_link_page.expect_download() as download_info:
-                        headline_link_page.goto(pdf_link)
+                    with pdf_link.expect_download() as download_info:
+                        pdf_filename = f"{sanitise_filename(pdf_link)}"
+                        print(pdf_filename)
+                        #pdf_filename = f"{sanitise_filename(headline)}.pdf"
+                        pdf_filename.wait_for_load_state('domcontentloaded')
+                        pdf_filename.path(path=pdf_filename)
+
+                        #headline_link_page.pdf(path=pdf_filename)
                         download = download_info.value
-                        pdf_filename = f"{sanitise_filename(headline)}.pdf"
+
                         download.save_as(pdf_filename)
                         #download_pdf(pdf_link, pdf_filename)
                         extracted_text = extract_text_from_pdf(pdf_filename)
                         os.remove(pdf_filename)
-                        entry = {"headline": headline, "link": pdf_link, "content": extracted_text}
+                        entry = {"headline": headline, "link": pdf_filename, "content": extracted_text}
 
                 except Exception as pdf_error:
                     print(f"Error while downloading or processing the PDF: {pdf_error}")
@@ -231,15 +242,31 @@ def download_pdf(url, save_path):
     else:
         raise Exception(f"Failed to download PDF from {url}")
     
-def extract_text_from_pdf(pdf_path):
+def extract_text_from_pdf(pdf_filename):
     text = ""
-    with pdfplumber.open(pdf_path) as pdf:
+    with pdfplumber.open(pdf_filename) as pdf:
         for page in pdf.pages:
             text += page.extract_text()
     return text
 
+# def extract_text_from_pdf(pdf_filename):
+#     text = ""
+#     try:
+#         # Open the PDF file
+#         pdf_document = fitz.open(pdf_filename)
+#         # Loop through each page
+#         for page_num in range(pdf_document.page_count):
+#             page = pdf_document.load_page(page_num)
+#             text += page.get_text()  # Extract text from each page
+#         pdf_document.close()  # Close the document after extraction
+#     except Exception as e:
+#         print(f"Error extracting text from {pdf_filename}: {e}")
+#     return text
+
 def sanitise_filename(text):
-    return ''.join(c if c.isalnum() else '_' for c in text)[:50]
+    parsed_url = urllib.parse.urlparse(text)
+    pdf_filename = os.path.basename(parsed_url.path)
+    return "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in text)[:50]
 
 if __name__ == "__main__":
-    data = scrape_deloitte_tax()
+    data = scrape_moodys_insights()
