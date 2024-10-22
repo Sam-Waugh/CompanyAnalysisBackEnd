@@ -7,7 +7,8 @@ import pdfplumber
 import urllib.parse
 import fitz  # PyMuPDF
 
-def scrape_moodys_insights():
+
+def scrape_mckinsey_insights():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
         #browser = p.firefox.launch(headless=True) 
@@ -21,29 +22,29 @@ def scrape_moodys_insights():
             },
             accept_downloads=True
         )
-        context.add_cookies([
-            {
-                'name': 'OptanonAlertBoxClosed',
-                'value': '2024-10-15T19:15:21.618Z',
-                'domain': '.www2.deloitte.com',
-                'path': '/us/'
-            },
-            {
-                'name': 'OptanonConsent',
-                'value': 'interactionCount=0&datestamp=Thu+Oct+17+2024+22%3A03%3A44+GMT%2B0100+(British+Summer+Time)&version=202210.1.0&isGpcEnabled=0&geolocation=GB&isIABGlobal=false&hosts=&consentId=2f5eedc6-c1c5-4d6e-929a-5dedc11004be&landingPath=NotLandingPage&AwaitingReconsent=false&groups=1%3A1%2C2%3A0%2C3%3A0%2C4%3A0',
-                'domain': '.www2.deloitte.com',
-                'path': '/us/'
-            },
-            {
-                'name': 'OneTrustConsentShare_GLOBAL',
-                'value': 'optboxclosed=true&optboxexpiry=2024-10-04T14:04:38.852Z&isGpcEnabled=0&datestamp=Fri+Oct+11+2024+16:26:30+GMT+0100+(British+Summer+Time)&version=202409.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=51304710-7c7d-4672-a80d-6cabc82a6c41&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=1:1,2:1,3:1,4:1&geolocation=GB&AwaitingReconsent=false',
-                'domain': '.deloitte.com',
-                'path': '/'
-            }
-        ])
+        # context.add_cookies([
+        #     {
+        #         'name': 'OptanonAlertBoxClosed',
+        #         'value': '2024-10-15T19:15:21.618Z',
+        #         'domain': '.www2.deloitte.com',
+        #         'path': '/us/'
+        #     },
+        #     {
+        #         'name': 'OptanonConsent',
+        #         'value': 'interactionCount=0&datestamp=Thu+Oct+17+2024+22%3A03%3A44+GMT%2B0100+(British+Summer+Time)&version=202210.1.0&isGpcEnabled=0&geolocation=GB&isIABGlobal=false&hosts=&consentId=2f5eedc6-c1c5-4d6e-929a-5dedc11004be&landingPath=NotLandingPage&AwaitingReconsent=false&groups=1%3A1%2C2%3A0%2C3%3A0%2C4%3A0',
+        #         'domain': '.www2.deloitte.com',
+        #         'path': '/us/'
+        #     },
+        #     {
+        #         'name': 'OneTrustConsentShare_GLOBAL',
+        #         'value': 'optboxclosed=true&optboxexpiry=2024-10-04T14:04:38.852Z&isGpcEnabled=0&datestamp=Fri+Oct+11+2024+16:26:30+GMT+0100+(British+Summer+Time)&version=202409.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=51304710-7c7d-4672-a80d-6cabc82a6c41&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=1:1,2:1,3:1,4:1&geolocation=GB&AwaitingReconsent=false',
+        #         'domain': '.deloitte.com',
+        #         'path': '/'
+        #     }
+        # ])
         
         data = []
-        url_template = "https://www.moodys.com/web/en/us/insights/all.html"
+        url_template = "https://www.mckinsey.com/industries/aerospace-and-defense/our-insights"
         # global industry 
         # industry = 'medical devices'
         # search_url_template = get_search_url(industry)
@@ -52,6 +53,76 @@ def scrape_moodys_insights():
         # for entry in data:
         #     print(entry["headline"])
         return data
+
+def scroll_main_page(page):
+    # Scroll down incrementally until the bottom of the page is reached
+    scroll_step = 500  # Adjust scroll step size if necessary
+    scroll_pause_time = 1.5  # Adjust this if needed to allow content to load
+    previous_height = page.evaluate("document.body.scrollHeight")
+
+    while True:
+        for i in range(10):
+        # Scroll by a set amount
+            page.evaluate(f"window.scrollBy(0, {i * scroll_step})")
+            page.keyboard.press("PageDown")
+
+        # Wait for the page to load new content
+            page.wait_for_timeout(scroll_pause_time * 1000)  # Adjust the timeout based on content load speed
+
+        # Wait for network to become idle (optional but can help with lazy-loaded content)
+        page.wait_for_load_state("networkidle")
+
+        # Get the current scroll height after loading new content
+        current_height = page.evaluate("document.body.scrollHeight")
+
+        if current_height == previous_height:
+            # If the page height has not changed, we reached the bottom
+            break
+
+        previous_height = current_height
+
+    # Optionally wait for the "Next" button or content load completion
+    page.wait_for_load_state("networkidle")
+
+
+def process_main_page(page):
+    search_page_headlines_dict = {}
+
+    # Scroll down the main page to load all the content
+    scroll_main_page(page)
+
+    # Wait for the <a> elements with the correct selector to be visible
+    try:
+        page.wait_for_selector('a[data-component="mdc-c-link"]', timeout=10000)  # 10-second wait
+    except Exception as e:
+        print(f"Error: {e}. Could not find 'a[data-component=\"mdc-c-link\"]' within timeout.")
+        return search_page_headlines_dict
+
+    # Extract all the <a> elements that match the selector for headlines/links
+    search_headlines = page.query_selector_all('a[data-component="mdc-c-link"]')
+
+    if not search_headlines:
+        print("No headlines found. Check if the selector is correct.")
+        print(page.content())  # Optionally print the page content to debug
+        return search_page_headlines_dict
+
+    # Loop through the elements and extract the text and href attribute
+    for headline in search_headlines:
+        end_url = headline.get_attribute('href')  # Get the href attribute
+        text = headline.inner_text().strip()  # Get the link text
+
+        # Construct the full URL if the link is relative
+        if end_url and not end_url.startswith('http'):
+            link = 'https://www.mckinsey.com' + str(end_url)
+        else:
+            link = end_url
+
+        print(f"Text: {text}, Link: {link}")  # Print both to verify the output
+        if text and link:  # Ensure both text and link exist
+            search_page_headlines_dict[text] = link
+    
+    return search_page_headlines_dict
+
 
 def paginate(url_template, context, data, start_page=1):
     url = url_template
@@ -70,7 +141,7 @@ def paginate(url_template, context, data, start_page=1):
     while True:
 
         # Process the page content
-        search_page_headlines_dict = process_page(page)
+        search_page_headlines_dict = process_main_page(page)
 
         # If no results are found, stop the process
         if not search_page_headlines_dict:
@@ -87,7 +158,7 @@ def paginate(url_template, context, data, start_page=1):
 
         try:
             # Ensure the next button is visible
-            next_button = page.query_selector('a.btn.load-more-button')
+            next_button = page.query_selector('mdc-c-button')
             if next_button and next_button.is_visible():
                 print(f"Scraping page {page_number + 1}")
                 next_button.click()
@@ -115,25 +186,30 @@ def paginate(url_template, context, data, start_page=1):
 
     page.close()
 
+# def process_page(page):
+#     search_page_headlines_dict = {}
 
-def process_page(page):
-    search_page_headlines_dict = {}
-    # Extracting headlines and links on the current page
-    search_headlines = page.query_selector_all('.card-insight')
+#     try:
+#         page.wait_for_selector('a[data-component="mdc-c-link"]', timeout=10000)  # Wait for up to 10 seconds
+#     except Exception as e:
+#         print(f"Error: {e}. Could not find 'a[data-component=\"mdc-c-link\"]' within timeout.")
+#         return search_page_headlines_dict
 
-    #print(search_headlines)
+#     # Extracting headlines and links on the current page
+#     search_headlines = page.query_selector_all('a[data-component="mdc-c-link"]')
 
-    # Loop through the elements and extract the text and href attribute
-    for headline in search_headlines:
-        text = headline.query_selector('h5').inner_text().strip()  # Get the link text
-        link_element = headline.query_selector('a.btn-quick-link')
-        end_url = link_element.get_attribute('href').strip()   # Get the href attribute
-        link = 'https://www.moodys.com' + str(end_url)
-        print(f"Text: {text}, Link: {link}")    # Print both
-        if text and link:  # Ensure both text and href exist
-            search_page_headlines_dict[text] = link  # Use .strip() to remove extra whitespace
+#     #print(search_headlines)
+
+#     # Loop through the elements and extract the text and href attribute
+#     for headline in search_headlines:
+#         end_url = headline.get_attribute('href').strip()   # Get the href attribute
+#         text = headline.inner_text().strip()  # Get the link text
+#         link = 'https://www.mckinsey.com/industries/aerospace-and-defense/our-insights' + str(end_url)
+#         print(f"Text: {text}, Link: {link}")    # Print both
+#         if text and link:  # Ensure both text and href exist
+#             search_page_headlines_dict[text] = link  # Use .strip() to remove extra whitespace
     
-    return search_page_headlines_dict
+#     return search_page_headlines_dict
 
 def process_headline(context, headline, headline_link, data, search_page_headlines_dict):
     with context.new_page() as headline_link_page:
@@ -172,11 +248,13 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
 
         try:
             headline_link_page.goto(headline_link, wait_until='domcontentloaded')
+            #headline_link_page.keyboard.press('End')
+            #headline_link_page.scroll
 
             if is_pdf_redirected and pdf_link:
                 if is_404_error:
                     # Extract the end_url from the original headline link
-                    pdf_link = pdf_link.replace('https://www.moodys.com', '')
+                    pdf_link = pdf_link.replace('https://www.mckinsey.com/industries/aerospace-and-defense/our-insights', '')
                     # Construct the new link by prepending the correct base URL
                     #new_link = '' + end_url
                     print(f"Trying further amended link: {pdf_link}")
@@ -215,7 +293,7 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
 
             elif is_404_error:
                 # Extract the end_url from the original headline link
-                url = headline_link.replace('https://www.moodys.com/', 'https://www.moodys.com/web/en/us/insights')
+                url = headline_link.replace('https://www.mckinsey.com', 'https://www.mckinsey.com/industries/aerospace-and-defense/our-insights')
                     
                 # Construct the new link by prepending the correct base URL
                 #new_link = '' + end_url
@@ -228,7 +306,7 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
 
                 if is_404_error:
                     # Extract the end_url from the original headline link
-                    url = headline_link.replace('https://www.moodys.com', '')
+                    url = headline_link.replace('https://www.mckinsey.com/industries/aerospace-and-defense/our-insights', '')
                     # Construct the new link by prepending the correct base URL
                     #new_link = '' + end_url
                     print(f"Trying further amended link: {url}")
@@ -306,4 +384,4 @@ def sanitise_filename(text):
     return "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in text)[:50]
 
 if __name__ == "__main__":
-    data = scrape_moodys_insights()
+    data = scrape_mckinsey_insights()
