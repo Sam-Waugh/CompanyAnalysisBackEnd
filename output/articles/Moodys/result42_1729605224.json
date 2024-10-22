@@ -1,0 +1,5 @@
+{
+    "headline": "Swiss banks: Improved profitability has little impact on low capital creation",
+    "link": "https://www.moodys.comhttps://www.moodys.com/web/en/us/site-assets/swiss-banks-research-paper.pdf",
+    "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/swiss-banks-research-paper.pdf\nCall log:\nnavigating to \"https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/swiss-banks-research-paper.pdf\", waiting until \"domcontentloaded\"\n"
+}

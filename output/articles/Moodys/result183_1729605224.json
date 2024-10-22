@@ -1,0 +1,5 @@
+{
+    "headline": "A new approach to credit risk management",
+    "link": "https://www.moodys.comhttps://www.moodys.com/web/en/us/site-assets/a-new-approach-to-credit-risk-management.pdf",
+    "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/a-new-approach-to-credit-risk-management.pdf\nCall log:\nnavigating to \"https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/a-new-approach-to-credit-risk-management.pdf\", waiting until \"domcontentloaded\"\n"
+}

@@ -1,0 +1,5 @@
+{
+    "headline": "Enabling your competitive advantage",
+    "link": "https://www.moodys.comhttps://www.moodys.com/web/en/us/site-assets/enabling-your-competitive-advantage.pdf",
+    "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/enabling-your-competitive-advantage.pdf\nCall log:\nnavigating to \"https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/enabling-your-competitive-advantage.pdf\", waiting until \"domcontentloaded\"\n"
+}

@@ -1,0 +1,5 @@
+{
+    "headline": "Assessing the Macroeconomic Consequences of Biden vs. Trump",
+    "link": "https://www.moodys.comhttps://www.economy.com/getfile?q=EA99E998-560D-4A12-85DE-3727A7EBE9A8&app=download",
+    "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.moodys.comhttps//www.economy.com/getfile?q=EA99E998-560D-4A12-85DE-3727A7EBE9A8&app=download\nCall log:\nnavigating to \"https://www.moodys.comhttps//www.economy.com/getfile?q=EA99E998-560D-4A12-85DE-3727A7EBE9A8&app=download\", waiting until \"domcontentloaded\"\n"
+}

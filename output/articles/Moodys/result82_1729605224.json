@@ -1,0 +1,5 @@
+{
+    "headline": "Sovereign and size-adjusted EDF-implied rating template (for private firms)",
+    "link": "https___www_moodys_com_web_en_us_insights_resource",
+    "content": "North America Large Firm 3.1\nEurope Large Firm 4.0\nJapan 3.2\nEmerging Markets 3.1\nChina 3.1\nUnited States 4.0 – Real Estate\nOperators\nUnited States 4.0 – Not-for-Profit𝑁(cid:2879)(cid:2869)(𝐸𝐷𝐹)\n(cid:3012)\n𝑅𝑎𝑡𝑖𝑛𝑔 = 𝛽 + 𝛽 𝐸𝐷𝐹+ 𝛽 𝑆𝑜𝑣𝑒𝑟𝑒𝑖𝑔𝑛 𝑅𝑎𝑡𝑖𝑛𝑔+ 𝛽 𝑆𝑖𝑧𝑒+ (cid:3533)𝛾 𝐼\n(cid:2868) (cid:2869) (cid:2870) (cid:2871) (cid:3037) (cid:3037)\n(cid:3037)(cid:2880)(cid:2869)\n𝛽 𝛾\n𝐸𝐷𝐹𝑆𝑜𝑣𝑒𝑟𝑒𝑖𝑔𝑛 𝑅𝑎𝑡𝑖𝑛𝑔\n𝑆𝑖𝑧𝑒\n𝐼 𝐼\n(cid:2869) (cid:3012)\nSovereign Rating EDF Asset Size\n60%\n50%\n40%\n30%\n20%\n10%\n0%\n1988-1990 1991-1993 1994-1996 1997-1999 2000-2002 2003-2005 2006-2008 2009-2011 2012-2014 2015-2017"
+}

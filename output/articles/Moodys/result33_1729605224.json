@@ -1,0 +1,5 @@
+{
+    "headline": "Assessing the macroeconomic consequences of Harris vs. Trump",
+    "link": "https://www.moodys.comhttps://www.moodys.com/web/en/us/site-assets/assessing-the-macroeconomic-consequences-of-harris-vs-trump.pdf",
+    "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/assessing-the-macroeconomic-consequences-of-harris-vs-trump.pdf\nCall log:\nnavigating to \"https://www.moodys.comhttps//www.moodys.com/web/en/us/site-assets/assessing-the-macroeconomic-consequences-of-harris-vs-trump.pdf\", waiting until \"domcontentloaded\"\n"
+}

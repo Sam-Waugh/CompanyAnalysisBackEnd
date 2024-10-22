@@ -1,0 +1,5 @@
+{
+    "headline": "An integrated approach to evaluate population exposure to inland and coastal flooding",
+    "link": "https://www.moodys.comhttps://www.moodys.com/web/en/us/insights/resources/an-integrated-approach-to-evaluate-population-exposure-to-inland-and-coastal-flooding.pdf",
+    "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.moodys.comhttps//www.moodys.com/web/en/us/insights/resources/an-integrated-approach-to-evaluate-population-exposure-to-inland-and-coastal-flooding.pdf\nCall log:\nnavigating to \"https://www.moodys.comhttps//www.moodys.com/web/en/us/insights/resources/an-integrated-approach-to-evaluate-population-exposure-to-inland-and-coastal-flooding.pdf\", waiting until \"domcontentloaded\"\n"
+}

@@ -4,10 +4,13 @@ import os
 from playwright.sync_api import sync_playwright
 import requests
 import pdfplumber
+import urllib.parse
+import fitz  # PyMuPDF
 
 def scrape_moodys_insights():
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=False)
+        #browser = p.firefox.launch(headless=True) 
         # Create a new browser context with a custom User-Agent
         context = browser.new_context(
             user_agent='Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -18,13 +21,36 @@ def scrape_moodys_insights():
             },
             accept_downloads=True
         )
+        context.add_cookies([
+            {
+                'name': 'OptanonAlertBoxClosed',
+                'value': '2024-10-15T19:15:21.618Z',
+                'domain': '.www2.deloitte.com',
+                'path': '/us/'
+            },
+            {
+                'name': 'OptanonConsent',
+                'value': 'interactionCount=0&datestamp=Thu+Oct+17+2024+22%3A03%3A44+GMT%2B0100+(British+Summer+Time)&version=202210.1.0&isGpcEnabled=0&geolocation=GB&isIABGlobal=false&hosts=&consentId=2f5eedc6-c1c5-4d6e-929a-5dedc11004be&landingPath=NotLandingPage&AwaitingReconsent=false&groups=1%3A1%2C2%3A0%2C3%3A0%2C4%3A0',
+                'domain': '.www2.deloitte.com',
+                'path': '/us/'
+            },
+            {
+                'name': 'OneTrustConsentShare_GLOBAL',
+                'value': 'optboxclosed=true&optboxexpiry=2024-10-04T14:04:38.852Z&isGpcEnabled=0&datestamp=Fri+Oct+11+2024+16:26:30+GMT+0100+(British+Summer+Time)&version=202409.1.0&browserGpcFlag=0&isIABGlobal=false&hosts=&consentId=51304710-7c7d-4672-a80d-6cabc82a6c41&interactionCount=1&isAnonUser=1&landingPath=NotLandingPage&groups=1:1,2:1,3:1,4:1&geolocation=GB&AwaitingReconsent=false',
+                'domain': '.deloitte.com',
+                'path': '/'
+            }
+        ])
         
         data = []
         url_template = "https://www.moodys.com/web/en/us/insights/all.html"
-    
+        # global industry 
+        # industry = 'medical devices'
+        # search_url_template = get_search_url(industry)
         paginate(url_template, context, data)
         browser.close()
-
+        # for entry in data:
+        #     print(entry["headline"])
         return data
 
 def paginate(url_template, context, data, start_page=1):
@@ -84,6 +110,9 @@ def paginate(url_template, context, data, start_page=1):
             else:
                 break  # If it's not a page close error, exit the loop
 
+                    # Wait for the next page to load (you can use wait_for_selector for an element unique to the next page)
+                    #page.wait_for_selector('.card-insight')
+
     page.close()
 
 
@@ -91,6 +120,8 @@ def process_page(page):
     search_page_headlines_dict = {}
     # Extracting headlines and links on the current page
     search_headlines = page.query_selector_all('.card-insight')
+
+    #print(search_headlines)
 
     # Loop through the elements and extract the text and href attribute
     for headline in search_headlines:
@@ -155,10 +186,25 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
                     
                 # Use Playwright's expect_download to handle PDF download
                 pdf_filename = sanitise_filename(pdf_link)
+                #download.save_as(pdf_filename)
                 print(pdf_filename)
                 try:
                     download_pdf(pdf_link, pdf_filename)
-               
+                # try:
+                #     with headline_link_page.expect_download() as download_info:
+                #         print("is pdf 4")
+                #         download = download_info.value
+                #         print("is pdf 5")
+
+                #         #pdf_filename = f"{sanitise_filename(headline)}.pdf"
+                #         # pdf_filename.wait_for_load_state('domcontentloaded')
+                #         # pdf_filename.path(path=pdf_filename)
+
+                #         # #headline_link_page.pdf(path=pdf_filename)
+                #         # download = download_info.value
+
+                #         # download.save_as(pdf_filename)
+                #         #download_pdf(pdf_link, pdf_filename)
                     extracted_text = extract_text_from_pdf(pdf_filename)
                     os.remove(pdf_filename)
                     entry = {"headline": headline, "link": pdf_filename, "content": extracted_text}
@@ -172,6 +218,7 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
                 url = headline_link.replace('https://www.moodys.com/', 'https://www.moodys.com/web/en/us/insights')
                     
                 # Construct the new link by prepending the correct base URL
+                #new_link = '' + end_url
                 print(f"Trying new link: {url}")
 
                 # Reset 404 error flag
@@ -183,6 +230,7 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
                     # Extract the end_url from the original headline link
                     url = headline_link.replace('https://www.moodys.com', '')
                     # Construct the new link by prepending the correct base URL
+                    #new_link = '' + end_url
                     print(f"Trying further amended link: {url}")
 
                     # Reset 404 error flag
@@ -206,8 +254,21 @@ def process_headline(context, headline, headline_link, data, search_page_headlin
         except Exception as e:
             print(f"Error during page load for {headline}: {e}")
             entry = {"headline": headline, "link": headline_link, "message": str(e)}
+                
+        #     headline_link_page_content = headline_link_page.content()
+        #     entry = {"headline": headline, "link": search_page_headlines_dict[headline], "content": headline_link_page_content}
+
+        # except Exception as e:
+        #     print(f"Error during page load for {headline}: {e}")    
+                
+        # elif is_404_error:
+
+        # else:
+        #     entry = {"headline": headline, "link": headline_link, "message": "No PDF was found or redirected."}
 
         data.append(entry) #saves after processing so data is captured even if script stops partway through 
+        # for entry in data:
+        #     print(entry["headline"])
 
 def download_pdf(url, save_path):
     response = requests.get(url)
@@ -225,8 +286,23 @@ def extract_text_from_pdf(pdf_filename):
             text += page.extract_text()
     return text
 
+# def extract_text_from_pdf(pdf_filename):
+#     text = ""
+#     try:
+#         # Open the PDF file
+#         pdf_document = fitz.open(pdf_filename)
+#         # Loop through each page
+#         for page_num in range(pdf_document.page_count):
+#             page = pdf_document.load_page(page_num)
+#             text += page.get_text()  # Extract text from each page
+#         pdf_document.close()  # Close the document after extraction
+#     except Exception as e:
+#         print(f"Error extracting text from {pdf_filename}: {e}")
+#     return text
+
 def sanitise_filename(text):
-    #parsed_url = urllib.parse.urlparse(text)
+    parsed_url = urllib.parse.urlparse(text)
+    #pdf_filename = os.path.basename(parsed_url.path)
     return "".join(c if c.isalnum() or c in ('_', '-') else '_' for c in text)[:50]
 
 if __name__ == "__main__":

@@ -1,0 +1,5 @@
+{
+    "headline": "The rise of the digital colleague: Evaluating companies with Moody's AI agents",
+    "link": "https://www.moodys.comhttps://www.moodys.com/web/en/us/insights/resources/the-rise-of-the-digital-colleague.pdf",
+    "message": "Page.goto: net::ERR_NAME_NOT_RESOLVED at https://www.moodys.comhttps//www.moodys.com/web/en/us/insights/resources/the-rise-of-the-digital-colleague.pdf\nCall log:\nnavigating to \"https://www.moodys.comhttps//www.moodys.com/web/en/us/insights/resources/the-rise-of-the-digital-colleague.pdf\", waiting until \"domcontentloaded\"\n"
+}
