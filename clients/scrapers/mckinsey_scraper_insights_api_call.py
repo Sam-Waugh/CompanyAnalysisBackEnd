@@ -2,6 +2,7 @@ import copy
 import json
 from os import name
 import os
+import time
 from playwright.sync_api import sync_playwright
 import requests
 import pdfplumber
@@ -56,14 +57,18 @@ def scrape_mckinsey_insights():
                         has_next, next_cursor, search_page_headlines_dict = make_api_call(industry_payload, referer, has_next, next_cursor, search_page_headlines_dict, context)
                         print(next_cursor)
                         empty_payload_processed = True
+                        print("Finished processing empty payload")
                     elif industry_payload != {}:
                         # This is for non-empty industry_payload
                         print(has_next)
                         has_next, next_cursor, search_page_headlines_dict = make_api_call(industry_payload, referer, has_next, next_cursor, search_page_headlines_dict, context)
                         print(next_cursor)
+                        print("Finished processing non-empty payload")
                     else:
                         # This is for subsequent empty industry_payload occurrences
                         break
+
+                print(f"End of processing: {referer}")
         except Exception as e:
             print(f"Error fetching URLs from API: {e}")
             return []
@@ -82,12 +87,12 @@ def capture_payload(referer, context):
     # Listen for network events
     def handle_request(request):
         nonlocal payload
-        if api_url in request.url and request.method == 'POST':  # Match the desired API call
+        if api_url in request.url and request.method == 'POST':  
             # Extract and print the post data (payload)
             post_data = request.post_data
             if post_data:
                 payload = json.loads(post_data)
-                print("Captured Payload:", json.dumps(payload, indent=4))
+                #print("Captured Payload:", json.dumps(payload, indent=4))
 
     # Attach the network event handler to intercept requests
     page.on("request", handle_request)
@@ -109,6 +114,7 @@ def get_industry_referers(context):
     industries_url = f"{base_url}/industries"
     page = context.new_page()
     page.goto(industries_url, wait_until='domcontentloaded')
+    page.wait_for_timeout(5000)
 
     # Scrape all industry links
     industry_link_elements = page.query_selector_all('a[href^="/industries/"]')
@@ -176,11 +182,12 @@ def make_api_call(payload, referer, has_next, next_cursor, search_page_headlines
     payload['afterId'] = next_cursor
 
     # Print the updated payload
-    print("Updated Payload:", json.dumps(payload, indent=4))
+    #print("Updated Payload:", json.dumps(payload, indent=4))
 
     try:
         print("next part API call")
         response = requests.post(url, json=payload, headers=headers)
+        time.sleep(5)
         response.raise_for_status()  # This will raise an exception for 4xx or 5xx status codes    
         print(response.status_code)
 
@@ -213,6 +220,7 @@ def make_api_call(payload, referer, has_next, next_cursor, search_page_headlines
             page = context.new_page()
             page_no = 1
             has_more_pages = True
+            payload = {}
 
             while has_more_pages:
                 
@@ -222,40 +230,49 @@ def make_api_call(payload, referer, has_next, next_cursor, search_page_headlines
                 print(f"Attempting new API call: {url}")
                 page.goto(url, wait_until='domcontentloaded')
 
-                # Wait for the content to load, adjust timeout as necessary
+                # Wait for the content to load
                 page.wait_for_timeout(3000) 
 
-                # Select all the links on the page
-                link_elements = page.query_selector_all("a[href^='/industries']")
+                # Check if "View more insights" button exists
+                view_more_button = page.query_selector('a[aria-label="view more insights"]')
+                if view_more_button:
 
-                if not link_elements:
-                    has_more_pages = False  # Stop if there are no more links
-                else:
-                    for link in link_elements:
-                        title = link.inner_text().strip()
-                        article_url = link.get_attribute('href')
-                
-                # response = requests.get(url)
-                # response.raise_for_status()  # This will raise an exception for 4xx or 5xx status codes    
+                    # Select all the links on the page
+                    link_elements = page.query_selector_all("a[href^='/industries']")
 
-                # print(response.status_code)
-                # data = response
-                # #print(data)
-                # gets = data.__getattribute__("a.href", [])
-                
-                # for href in gets:
-                #     title = href.get('headline')
-                #     article_url = post.get('href')
+                    if not link_elements:
+                        has_more_pages = False  # Stop if there are no more links
+                    else:
+                        for link in link_elements:
+                            title = link.inner_text().strip()
+                            article_url = link.get_attribute('href')
                     
-                        if title and article_url:
-                            full_url = f"https://www.mckinsey.com{article_url}"  # Complete the URL
-                            search_page_headlines_dict[title] = full_url  # Store title and URL in dictionary
-                            #print(search_page_headlines_dict[title])
+                    # response = requests.get(url)
+                    # response.raise_for_status()  # This will raise an exception for 4xx or 5xx status codes    
 
-                            print(f"Title: {title}")
-                            print(f"URL: {full_url}")
-                            print(f"nextCursor: {next_cursor}")
-                            print("---")
+                    # print(response.status_code)
+                    # data = response
+                    # #print(data)
+                    # gets = data.__getattribute__("a.href", [])
+                    
+                    # for href in gets:
+                    #     title = href.get('headline')
+                    #     article_url = post.get('href')
+                        
+                            if title and article_url:
+                                full_url = f"https://www.mckinsey.com{article_url}"  # Complete the URL
+                                search_page_headlines_dict[title] = full_url  # Store title and URL in dictionary
+                                #print(search_page_headlines_dict[title])
+
+                                print(f"Title: {title}")
+                                print(f"URL: {full_url}")
+                                print(f"nextCursor: {next_cursor}")
+                                print("---")
+
+                            else:
+                                # If "View more insights" button is not found, close the page and stop scraping
+                                print(f"'View more insights' button not found on page {page_no}, closing.")
+                                has_more_pages = False
                 
                 page_no += 1
             page.close()
@@ -270,6 +287,7 @@ def make_api_call(payload, referer, has_next, next_cursor, search_page_headlines
             page = context.new_page()
             page_no = 1
             has_more_pages = True
+            payload = {}
 
             while has_more_pages:
                 
@@ -279,43 +297,62 @@ def make_api_call(payload, referer, has_next, next_cursor, search_page_headlines
                 print(f"Attempting new API call: {url}")
                 page.goto(url, wait_until='domcontentloaded')
 
-                # Wait for the content to load, adjust timeout as necessary
+                # Wait for the content to load
                 page.wait_for_timeout(3000) 
 
-                # Select all the links on the page
-                link_elements = page.query_selector_all("a[href^='/industries']")
+                # Check if "View more insights" button exists
+                view_more_button = page.query_selector('a[aria-label="view more insights"]')
+                if view_more_button:
 
-                if not link_elements:
-                    has_more_pages = False  # Stop if there are no more links
-                else:
-                    for link in link_elements:
-                        title = link.inner_text().strip()
-                        article_url = link.get_attribute('href')
-                
-                # response = requests.get(url)
-                # response.raise_for_status()  # This will raise an exception for 4xx or 5xx status codes    
+                    # Select all the links on the page
+                    link_elements = page.query_selector_all("a[href^='/industries']")
 
-                # print(response.status_code)
-                # data = response
-                # #print(data)
-                # gets = data.__getattribute__("a.href", [])
-                
-                # for href in gets:
-                #     title = href.get('headline')
-                #     article_url = post.get('href')
+                    if not link_elements:
+                        has_more_pages = False  # Stop if there are no more links
+                    else:
+                        for link in link_elements:
+                            title = link.inner_text().strip()
+                            article_url = link.get_attribute('href')
                     
-                        if title and article_url:
-                            full_url = f"https://www.mckinsey.com{article_url}"  # Complete the URL
-                            search_page_headlines_dict[title] = full_url  # Store title and URL in dictionary
-                            #print(search_page_headlines_dict[title])
+                    # response = requests.get(url)
+                    # response.raise_for_status()  # This will raise an exception for 4xx or 5xx status codes    
 
-                            print(f"Title: {title}")
-                            print(f"URL: {full_url}")
-                            print(f"nextCursor: {next_cursor}")
-                            print("---")
+                    # print(response.status_code)
+                    # data = response
+                    # #print(data)
+                    # gets = data.__getattribute__("a.href", [])
+                    
+                    # for href in gets:
+                    #     title = href.get('headline')
+                    #     article_url = post.get('href')
+                        
+                            if title and article_url:
+                                full_url = f"https://www.mckinsey.com{article_url}"  # Complete the URL
+                                search_page_headlines_dict[title] = full_url  # Store title and URL in dictionary
+                                #print(search_page_headlines_dict[title])
+
+                                print(f"Title: {title}")
+                                print(f"URL: {full_url}")
+                                print(f"nextCursor: {next_cursor}")
+                                print("---")
+
+                            else:
+                                # If "View more insights" button is not found, close the page and stop scraping
+                                print(f"'View more insights' button not found on page {page_no}, closing.")
+                                has_more_pages = False
                 
                 page_no += 1
             page.close()
+        
+        elif response.status_code == 403 and not next_cursor:
+            print(f"Forbidden 403 error on API call response status: {e} \nReferer =: {referer} \nPayload: {payload} \nURL: {url} \nhas_next: {has_next}")
+            payload = {}
+        
+        elif response.status_code == 403 and next_cursor:
+            print(f"Forbidden 403 error on API call response status but still has next_cursor: {e} \nReferer =: {referer} \nPayload: {payload} \nURL: {url} \nhas_next: {has_next} \nnext_cursor: {next_cursor}")
+            payload = {}
+            print(f"Stopping this {referer} api calls")
+
         else:
             print(f"Unexpected error: {response.status_code}")
             print(response.text)
